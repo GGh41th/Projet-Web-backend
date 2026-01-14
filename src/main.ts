@@ -25,7 +25,7 @@ async function bootstrap() {
 
   // Swagger Documentation Setup
   const config = new DocumentBuilder()
-    .setTitle('Bloggy APIs')
+    .setTitle('Still searching for a name APIs')
     .setDescription('Blog platform API with articles, comments, and notifications')
     .setVersion('1.0')
     .addBearerAuth()
