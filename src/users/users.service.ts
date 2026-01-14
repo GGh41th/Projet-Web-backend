@@ -130,5 +130,30 @@ export class UsersService {
 
     return user;
   }
+
+  /**
+   * Check if email or username is already taken
+   * @param identifier - Email or username to check
+   * @returns Object with isTaken boolean
+   */
+  async isValid(identifier: string): Promise<{ isTaken: boolean }> {
+    // Check if it's an email format
+    const isEmail = identifier.includes('@');
+
+    let user;
+    if (isEmail) {
+      user = await this.userRepository.findOne({
+        where: { email: identifier },
+        select: ['id'],
+      });
+    } else {
+      user = await this.userRepository.findOne({
+        where: { username: identifier },
+        select: ['id'],
+      });
+    }
+
+    return { isTaken: !!user };
+  }
 }
 

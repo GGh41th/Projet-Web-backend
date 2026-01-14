@@ -102,6 +102,33 @@ export class UsersController {
     return result;
   }
 
+  @Get('isvalid/:identifier')
+  @ApiOperation({ 
+    summary: 'Check if email or username is available',
+    description: 'Returns whether the provided email or username is already taken. Automatically detects if input is email (contains @) or username.'
+  })
+  @ApiParam({ 
+    name: 'identifier', 
+    description: 'Email address or username to check',
+    example: 'johndoe or john@example.com'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Availability check result',
+    schema: {
+      type: 'object',
+      properties: {
+        isTaken: {
+          type: 'boolean',
+          description: 'true if email/username is already taken, false if available',
+        },
+      },
+    },
+  })
+  async checkAvailability(@Param('identifier') identifier: string) {
+    return await this.usersService.isValid(identifier);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get a user by ID' })
   @ApiParam({ name: 'id', description: 'User UUID' })
