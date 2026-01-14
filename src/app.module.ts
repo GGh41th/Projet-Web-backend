@@ -8,6 +8,7 @@ import { join } from 'path';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { MorganInterceptor, MorganModule } from 'nest-morgan';
 import { UsersModule } from './users/users.module';
+import { ArticleModule } from './article/article.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { UsersModule } from './users/users.module';
     }),
     MorganModule,
     UsersModule,
+    ArticleModule,
   ],
   controllers: [AppController],
   providers: [
