@@ -66,6 +66,42 @@ export class UsersController {
     });
   }
 
+  @Get('email/:email')
+  @ApiOperation({ summary: 'Find a user by email address' })
+  @ApiParam({ name: 'email', description: 'User email address' })
+  @ApiResponse({
+    status: 200,
+    description: 'User found',
+    type: UserResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async findByEmail(@Param('email') email: string) {
+    const user = await this.usersService.findByEmail(email);
+    if (!user) {
+      return null;
+    }
+    const { password, ...result } = user;
+    return result;
+  }
+
+  @Get('username/:username')
+  @ApiOperation({ summary: 'Find a user by username' })
+  @ApiParam({ name: 'username', description: 'Username' })
+  @ApiResponse({
+    status: 200,
+    description: 'User found',
+    type: UserResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async findByUsername(@Param('username') username: string) {
+    const user = await this.usersService.findByUsername(username);
+    if (!user) {
+      return null;
+    }
+    const { password, ...result } = user;
+    return result;
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get a user by ID' })
   @ApiParam({ name: 'id', description: 'User UUID' })
