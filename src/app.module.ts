@@ -3,6 +3,10 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import { MorganInterceptor, MorganModule } from 'nest-morgan';
 
 @Module({
   imports: [
@@ -13,7 +17,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
     TypeOrmModule.forRoot({
       type: 'postgres',
       host: process.env.DB_HOST || 'localhost',
-      port: parseInt(process.env.DB_PORT) || 5432,
+      port: parseInt(process.env.DB_PORT || '5432'),
       username: process.env.DB_USERNAME || 'postgres',
       password: process.env.DB_PASSWORD || 'postgres',
       database: process.env.DB_DATABASE || 'bloggy_db',
@@ -21,8 +25,19 @@ import { TypeOrmModule } from '@nestjs/typeorm';
       synchronize: process.env.NODE_ENV === 'development', // Only for development
       logging: process.env.NODE_ENV === 'development',
     }),
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', 'uploads'),
+      serveRoot: '/uploads',
+    }),
+    MorganModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: MorganInterceptor('combined'),
+    },
+  ],
 })
 export class AppModule {}
