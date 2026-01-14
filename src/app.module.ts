@@ -7,6 +7,7 @@ import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { MorganInterceptor, MorganModule } from 'nest-morgan';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { MorganInterceptor, MorganModule } from 'nest-morgan';
       serveRoot: '/uploads',
     }),
     MorganModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [
