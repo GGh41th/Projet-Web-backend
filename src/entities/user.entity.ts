@@ -4,7 +4,6 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
-  Index,
   BeforeInsert,
   BeforeUpdate,
 } from 'typeorm';
@@ -16,11 +15,9 @@ export class User {
   id: string;
 
   @Column({ unique: true })
-  @Index()
   email: string;
 
   @Column({ unique: true })
-  @Index()
   username: string;
 
   @Column()
@@ -52,7 +49,6 @@ export class User {
   @BeforeUpdate()
   async hashPassword() {
     if (this.password && !this.password.startsWith('$2b$')) {
-      // Only hash if password is not already hashed
       this.password = await bcrypt.hash(this.password, 10);
     }
   }
