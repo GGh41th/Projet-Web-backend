@@ -44,11 +44,9 @@ export class UsersService {
   /**
    * Find all users with optional transformation
    */
-  async findAll(transform?: boolean): Promise<User[]> {
+  async findAll(): Promise<User[]> {
     const users = await this.userRepository.find({
-      select: transform
-        ? ['id', 'email', 'username', 'name', 'lastName', 'bio', 'role', 'createdAt', 'updatedAt']
-        : undefined,
+      select: ['id', 'email', 'username', 'name', 'lastName', 'bio', 'role', 'createdAt', 'updatedAt'],
       order: { createdAt: 'DESC' },
     });
     return users;

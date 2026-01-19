@@ -39,31 +39,19 @@ export class UsersController {
   @ApiResponse({ status: 400, description: 'Invalid input data' })
   async create(@Body() createUserDto: CreateUserDto) {
     const user = await this.usersService.create(createUserDto);
-    // Remove password from response
     const { password, ...result } = user;
     return result;
   }
 
   @Get()
   @ApiOperation({ summary: 'Get all users' })
-  @ApiQuery({
-    name: 'transform',
-    required: false,
-    type: Boolean,
-    description: 'Transform user data (exclude password)',
-  })
   @ApiResponse({
     status: 200,
     description: 'List of all users',
     type: [UserResponseDto],
   })
-  async findAll(@Query('transform', new ParseBoolPipe({ optional: true })) transform?: boolean) {
-    const users = await this.usersService.findAll(transform);
-    // Remove passwords from all users
-    return users.map(user => {
-      const { password, ...result } = user;
-      return result;
-    });
+  async findAll() {
+    return await this.usersService.findAll();
   }
 
   @Get(':id')
@@ -76,9 +64,7 @@ export class UsersController {
   })
   @ApiResponse({ status: 404, description: 'User not found' })
   async findOne(@Param('id') id: string) {
-    const user = await this.usersService.findOne(id);
-    const { password, ...result } = user;
-    return result;
+    return await this.usersService.findOne(id);
   }
 
   @Patch(':id')
@@ -93,9 +79,7 @@ export class UsersController {
   @ApiResponse({ status: 404, description: 'User not found' })
   @ApiResponse({ status: 409, description: 'Username already exists' })
   async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-    const user = await this.usersService.update(id, updateUserDto);
-    const { password, ...result } = user;
-    return result;
+    return await this.usersService.update(id, updateUserDto);
   }
 
   @Delete(':id')
