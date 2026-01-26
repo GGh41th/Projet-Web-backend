@@ -5,6 +5,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
+  OneToMany,
   JoinColumn,
 } from 'typeorm';
 import { User } from './user.entity';
@@ -26,6 +27,22 @@ export class Article {
 
   @Column()
   authorId: string;
+
+  @ManyToOne(() => Article, (article) => article.comments, {
+    nullable: true,
+    onDelete: 'CASCADE',
+  })
+  @JoinColumn({ name: 'parentId' })
+  parent: Article;
+
+  @Column({ nullable: true })
+  parentId: string | null;
+
+  @OneToMany(() => Article, (article) => article.parent)
+  comments: Article[];
+
+  @Column({ type: 'int', default: 0 })
+  depth: number;
 
   @CreateDateColumn()
   createdAt: Date;
