@@ -5,13 +5,14 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull } from 'typeorm';
+import { Repository, IsNull, Like } from 'typeorm';
 import { Article } from '../entities/article.entity';
 import { User } from '../entities/user.entity';
 import {
   CreateArticleDto,
   UpdateArticleDto,
   CreateCommentDto,
+  SearchArticleDto,
 } from './dto';
 
 @Injectable()
@@ -145,5 +146,39 @@ export class ArticleService {
       relations: ['author'],
       order: { createdAt: 'DESC' },
     });
+  }
+
+  async search(searchDto: SearchArticleDto): Promise<{ data: Article[]; total: number; page: number; limit: number }> {
+    const { q, authorId, page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'DESC' } = searchDto;
+
+    const queryBuilder = this.articleRepository
+      .createQueryBuilder('article')
+      .leftJoinAndSelect('article.author', 'author')
+      .where('article.parentId IS NULL');
+
+    if (q) {
+      queryBuilder.andWhere(
+        '(article.title ILIKE :query OR article.content ILIKE :query)',
+        { query: `%${q}%` }
+      );
+    }
+
+    if (authorId) {
+      queryBuilder.andWhere('article.authorId = :authorId', { authorId });
+    }
+
+    queryBuilder.orderBy(`article.${sortBy}`, sortOrder);
+
+    const skip = (page - 1) * limit;
+    queryBuilder.skip(skip).take(limit);
+
+    const [data, total] = await queryBuilder.getManyAndCount();
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+    };
   }
 }

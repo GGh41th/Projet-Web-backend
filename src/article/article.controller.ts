@@ -9,8 +9,9 @@ import {
   HttpCode,
   HttpStatus,
   UseGuards,
+  Query,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { ArticleService } from './article.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -19,6 +20,7 @@ import {
   UpdateArticleDto,
   CreateCommentDto,
   ArticleResponseDto,
+  SearchArticleDto,
 } from './dto';
 
 @ApiTags('articles')
@@ -52,6 +54,30 @@ export class ArticleController {
   })
   findAll() {
     return this.articleService.findAll();
+  }
+
+  @Get('search')
+  @ApiOperation({ summary: 'Search and filter articles with pagination' })
+  @ApiQuery({ name: 'q', required: false, description: 'Search query for title and content' })
+  @ApiQuery({ name: 'authorId', required: false, description: 'Filter by author UUID' })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (starts at 1)' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
+  @ApiQuery({ name: 'sortBy', required: false, enum: ['createdAt', 'updatedAt', 'title'] })
+  @ApiQuery({ name: 'sortOrder', required: false, enum: ['ASC', 'DESC'] })
+  @ApiResponse({
+    status: 200,
+    description: 'Paginated search results',
+    schema: {
+      example: {
+        data: [],
+        total: 100,
+        page: 1,
+        limit: 10,
+      },
+    },
+  })
+  search(@Query() searchDto: SearchArticleDto) {
+    return this.articleService.search(searchDto);
   }
 
   @Get(':id')
