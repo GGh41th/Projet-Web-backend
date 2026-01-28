@@ -12,11 +12,6 @@ export class CreateCommentDto {
   @IsNotEmpty()
   content: string;
 
-  @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
-  @IsUUID()
-  @IsNotEmpty()
-  authorId: string;
-
   @ApiProperty({
     example: '123e4567-e89b-12d3-a456-426614174001',
     description: 'Parent article or comment ID',

@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
@@ -22,14 +23,14 @@ export class ArticleService {
     private userRepository: Repository<User>,
   ) {}
 
-  async create(createArticleDto: CreateArticleDto): Promise<Article> {
-    const { authorId, parentId, ...articleData } = createArticleDto;
+  async create(userId: string, createArticleDto: CreateArticleDto): Promise<Article> {
+    const { parentId, ...articleData } = createArticleDto;
 
     const author = await this.userRepository.findOne({
-      where: { id: authorId },
+      where: { id: userId },
     });
     if (!author) {
-      throw new NotFoundException(`User with ID ${authorId} not found`);
+      throw new NotFoundException(`User with ID ${userId} not found`);
     }
 
     let depth = 0;
@@ -45,7 +46,7 @@ export class ArticleService {
 
     const article = this.articleRepository.create({
       ...articleData,
-      authorId,
+      authorId: userId,
       parentId,
       depth,
     });
@@ -74,35 +75,43 @@ export class ArticleService {
     return article;
   }
 
-  async update(id: string, updateArticleDto: UpdateArticleDto): Promise<Article> {
+  async update(id: string, userId: string, updateArticleDto: UpdateArticleDto): Promise<Article> {
     const article = await this.articleRepository.findOne({ where: { id } });
 
     if (!article) {
       throw new NotFoundException(`Article with ID ${id} not found`);
+    }
+
+    if (article.authorId !== userId) {
+      throw new ForbiddenException('You can only update your own articles');
     }
 
     Object.assign(article, updateArticleDto);
     return this.articleRepository.save(article);
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(id: string, userId: string): Promise<void> {
     const article = await this.articleRepository.findOne({ where: { id } });
 
     if (!article) {
       throw new NotFoundException(`Article with ID ${id} not found`);
     }
 
+    if (article.authorId !== userId) {
+      throw new ForbiddenException('You can only delete your own articles');
+    }
+
     await this.articleRepository.remove(article);
   }
 
-  async createComment(createCommentDto: CreateCommentDto): Promise<Article> {
-    const { authorId, parentId, ...commentData } = createCommentDto;
+  async createComment(userId: string, createCommentDto: CreateCommentDto): Promise<Article> {
+    const { parentId, ...commentData } = createCommentDto;
 
     const author = await this.userRepository.findOne({
-      where: { id: authorId },
+      where: { id: userId },
     });
     if (!author) {
-      throw new NotFoundException(`User with ID ${authorId} not found`);
+      throw new NotFoundException(`User with ID ${userId} not found`);
     }
 
     const parent = await this.articleRepository.findOne({
@@ -114,7 +123,7 @@ export class ArticleService {
 
     const comment = this.articleRepository.create({
       ...commentData,
-      authorId,
+      authorId: userId,
       parentId,
       depth: parent.depth + 1,
     });
