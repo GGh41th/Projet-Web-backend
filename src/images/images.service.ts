@@ -1,7 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Image } from '../entities/image.entity';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 
 @Injectable()
 export class ImagesService {
@@ -35,6 +37,70 @@ export class ImagesService {
   }
 
   async remove(id: string): Promise<void> {
-    await this.imageRepository.delete(id);
+    const image = await this.findOne(id);
+    if (image) {
+      await this.deletePhysicalFile(image.path);
+      await this.imageRepository.delete(id);
+    }
+  }
+
+  /**
+   * Save file metadata to database
+   * @param file Multer file object
+   * @param articleId Article ID to associate with image
+   */
+  async saveImageMetadata(
+    file: Express.Multer.File,
+    articleId: string,
+  ): Promise<Image> {
+    if (!file) {
+      throw new BadRequestException('No file uploaded');
+    }
+
+    const imagePath = path.join('uploads/images', file.filename).replace(/\\/g, '/');
+
+    return await this.create({
+      filename: file.filename,
+      path: imagePath,
+      mimetype: file.mimetype,
+      size: file.size,
+      articleId,
+    } as Partial<Image>);
+  }
+
+  /**
+   * Delete physical file from disk
+   * @param filePath Path to the file
+   */
+  async deletePhysicalFile(filePath: string): Promise<void> {
+    try {
+      const fullPath = path.join(process.cwd(), filePath);
+      await fs.unlink(fullPath);
+    } catch (error) {
+      console.error(`Failed to delete file at ${filePath}:`, error);
+      // Don't throw - file might already be deleted or path might be invalid
+    }
+  }
+
+  /**
+   * Validate file before processing
+   * @param file File to validate
+   */
+  validateFile(file: Express.Multer.File): void {
+    if (!file) {
+      throw new BadRequestException('No file provided');
+    }
+
+    const maxFileSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxFileSize) {
+      throw new BadRequestException('File size exceeds 5MB limit');
+    }
+
+    const allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedMimes.includes(file.mimetype)) {
+      throw new BadRequestException(
+        'Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed',
+      );
+    }
   }
 }
