@@ -9,6 +9,7 @@ import { APP_INTERCEPTOR } from '@nestjs/core';
 import { MorganInterceptor, MorganModule } from 'nest-morgan';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
+import { ImagesModule } from './images/images.module';
 import { ArticleModule } from './article/article.module';
 
 @Module({
@@ -35,6 +36,7 @@ import { ArticleModule } from './article/article.module';
     MorganModule,
     UsersModule,
     AuthModule,
+    ImagesModule,
     ArticleModule,
   ],
   controllers: [AppController],
