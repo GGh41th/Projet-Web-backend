@@ -17,6 +17,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   async validate(payload: JwtPayload) {
     // This payload comes from the JWT token
     // Whatever you return here gets attached to req.user
-    return { userId: payload.sub, email: payload.email };
+    return { userId: payload.sub, email: payload.email, role: payload.role  };
   }
 }

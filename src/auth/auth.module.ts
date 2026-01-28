@@ -12,6 +12,7 @@ import { LocalStrategy } from './strategies/local.strategy';
 @Module({
   imports: [UsersModule, JwtModule.registerAsync({
       imports: [ConfigModule],
+      global: true,  // JwtModule available everywhere
       useFactory: (configService: ConfigService) => ({
         secret: configService.get<string>('JWT_SECRET'),
         signOptions: { 
@@ -22,6 +23,6 @@ import { LocalStrategy } from './strategies/local.strategy';
     }), PassportModule],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, LocalStrategy],
-  exports: [AuthService], 
+  exports: [AuthService, JwtModule], 
 })
 export class AuthModule {}

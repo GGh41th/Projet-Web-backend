@@ -6,7 +6,9 @@ import {
   MinLength,
   MaxLength,
   IsOptional,
+  IsEnum,
 } from 'class-validator';
+import { Role } from '../../auth/enums/role.enum';
 
 export class CreateUserDto {
   @ApiProperty({
@@ -65,4 +67,15 @@ export class CreateUserDto {
   @IsString()
   @IsOptional()
   bio?: string;
+
+  @ApiProperty({
+    description: 'User role',
+    example: Role.USER,
+    enum: Role,
+    default: Role.USER,
+    required: false,
+  })
+  @IsEnum(Role)
+  @IsOptional()
+  role?: Role;
 }
