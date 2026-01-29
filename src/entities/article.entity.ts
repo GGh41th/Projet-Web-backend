@@ -9,6 +9,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { User } from './user.entity';
+import { Image } from './image.entity';
 
 @Entity('articles')
 export class Article {
@@ -40,6 +41,9 @@ export class Article {
 
   @OneToMany(() => Article, (article) => article.parent)
   comments: Article[];
+
+  @OneToMany(() => Image, (image) => image.article, { eager: true })
+  images: Image[];
 
   @Column({ type: 'int', default: 0 })
   depth: number;
