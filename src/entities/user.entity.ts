@@ -6,9 +6,11 @@ import {
   UpdateDateColumn,
   BeforeInsert,
   BeforeUpdate,
+  ManyToMany,
 } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { Role } from '../auth/enums/role.enum';
+import { Article } from './article.entity';
 
 @Entity('users')
 export class User {
@@ -39,6 +41,12 @@ export class User {
     default: Role.USER 
   })
   role: Role;
+
+  @ManyToMany(() => Article, (article) => article.upvoters)
+  upvotedArticles: Article[];
+
+  @ManyToMany(() => Article, (article) => article.downvoters)
+  downvotedArticles: Article[];
 
   @CreateDateColumn()
   createdAt: Date;
