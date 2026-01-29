@@ -2,6 +2,8 @@ import {
   Controller,
   Get,
   Post,
+  Put,
+  Patch,
   Param,
   Delete,
   UseInterceptors,
@@ -163,8 +165,99 @@ export class ImagesController {
     return image;
   }
 
+  @Post('add')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Add image to existing article' })
+  @ApiBody({
+    description: 'Image file and article ID',
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'Image file (JPEG, PNG, GIF, WebP, max 5MB)',
+        },
+        articleId: {
+          type: 'string',
+          description: 'Article ID to add image to',
+        },
+      },
+      required: ['file', 'articleId'],
+    },
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Image added successfully',
+    type: Image,
+  })
+  @ApiResponse({ status: 400, description: 'Invalid file or articleId' })
+  @ApiResponse({ status: 404, description: 'Article not found' })
+  async addImage(
+    @UploadedFile() file: Express.Multer.File,
+    @Body('articleId') articleId: string,
+  ): Promise<Image> {
+    if (!articleId) {
+      throw new BadRequestException('articleId is required');
+    }
+
+    if (!file) {
+      throw new BadRequestException('No file uploaded');
+    }
+
+    return await this.imagesService.addImage(file, articleId);
+  }
+
+  @Put(':id')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Update/replace existing image' })
+  @ApiParam({ name: 'id', description: 'Image ID to update' })
+  @ApiBody({
+    description: 'New image file',
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'New image file (JPEG, PNG, GIF, WebP, max 5MB)',
+        },
+      },
+      required: ['file'],
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Image updated successfully',
+    type: Image,
+  })
+  @ApiResponse({ status: 400, description: 'Invalid file' })
+  @ApiResponse({ status: 404, description: 'Image not found' })
+  async updateImage(
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<Image> {
+    if (!file) {
+      throw new BadRequestException('No file uploaded');
+    }
+
+    return await this.imagesService.updateImage(id, file);
+  }
+
   @Delete(':id')
-  @ApiOperation({ summary: 'Delete image' })
+  @ApiOperation({ summary: 'Delete image (removes from DB and disk)' })
+  @ApiParam({ name: 'id', description: 'Image ID' })
+  @ApiResponse({ status: 200, description: 'Image deleted successfully' })
+  @ApiResponse({ status: 404, description: 'Image not found' })
+  async deleteImage(@Param('id') id: string): Promise<{ message: string }> {
+    await this.imagesService.deleteImage(id);
+    return { message: 'Image deleted successfully' };
+  }
+
+  @Delete('legacy/:id')
+  @ApiOperation({ summary: '[Legacy] Delete image - use DELETE /:id instead' })
   @ApiParam({ name: 'id', description: 'Image ID' })
   @ApiResponse({ status: 200, description: 'Image deleted successfully' })
   @ApiResponse({ status: 404, description: 'Image not found' })

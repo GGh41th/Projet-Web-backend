@@ -1,7 +1,8 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { Image } from '../entities/image.entity';
+import { Article } from '../entities/article.entity';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
@@ -10,6 +11,7 @@ export class ImagesService {
   constructor(
     @InjectRepository(Image)
     private readonly imageRepository: Repository<Image>,
+    private readonly dataSource: DataSource,
   ) {}
 
   async create(imageData: Partial<Image>): Promise<Image> {
@@ -41,6 +43,173 @@ export class ImagesService {
     if (image) {
       await this.deletePhysicalFile(image.path);
       await this.imageRepository.delete(id);
+    }
+  }
+
+  /**
+   * Add new image to existing article
+   * Uses transaction to ensure atomicity
+   * @param file Multer file object
+   * @param articleId Article ID to associate with image
+   */
+  async addImage(
+    file: Express.Multer.File,
+    articleId: string,
+  ): Promise<Image> {
+    // Validate file
+    this.validateFile(file);
+
+    // Use transaction to ensure atomicity
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // Verify article exists
+      const article = await queryRunner.manager.findOne(Article, {
+        where: { id: articleId },
+      });
+
+      if (!article) {
+        throw new NotFoundException(`Article with ID ${articleId} not found`);
+      }
+
+      // Create image metadata
+      const imagePath = path.join('uploads/images', file.filename).replace(/\\/g, '/');
+      const image = queryRunner.manager.create(Image, {
+        filename: file.filename,
+        path: imagePath,
+        mimetype: file.mimetype,
+        size: file.size,
+        articleId,
+      });
+
+      // Save to database
+      const savedImage = await queryRunner.manager.save(image);
+
+      // Commit transaction
+      await queryRunner.commitTransaction();
+
+      return savedImage;
+    } catch (error) {
+      // Rollback transaction on error
+      await queryRunner.rollbackTransaction();
+      
+      // Delete uploaded file if transaction failed
+      await this.deletePhysicalFile(
+        path.join('uploads/images', file.filename).replace(/\\/g, '/'),
+      );
+
+      throw error;
+    } finally {
+      // Release query runner
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * Update/replace existing image
+   * Deletes old file and uploads new one with transaction
+   * @param imageId Image ID to update
+   * @param file New image file
+   */
+  async updateImage(
+    imageId: string,
+    file: Express.Multer.File,
+  ): Promise<Image> {
+    // Validate file
+    this.validateFile(file);
+
+    // Use transaction to ensure atomicity
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // Find existing image
+      const existingImage = await queryRunner.manager.findOne(Image, {
+        where: { id: imageId },
+      });
+
+      if (!existingImage) {
+        throw new NotFoundException(`Image with ID ${imageId} not found`);
+      }
+
+      // Store old path for deletion
+      const oldPath = existingImage.path;
+
+      // Update image metadata
+      const newPath = path.join('uploads/images', file.filename).replace(/\\/g, '/');
+      existingImage.filename = file.filename;
+      existingImage.path = newPath;
+      existingImage.mimetype = file.mimetype;
+      existingImage.size = file.size;
+
+      // Save updated image to database
+      const updatedImage = await queryRunner.manager.save(existingImage);
+
+      // Commit transaction
+      await queryRunner.commitTransaction();
+
+      // Delete old physical file (after successful transaction)
+      await this.deletePhysicalFile(oldPath);
+
+      return updatedImage;
+    } catch (error) {
+      // Rollback transaction on error
+      await queryRunner.rollbackTransaction();
+
+      // Delete new uploaded file if transaction failed
+      await this.deletePhysicalFile(
+        path.join('uploads/images', file.filename).replace(/\\/g, '/'),
+      );
+
+      throw error;
+    } finally {
+      // Release query runner
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * Delete image with cascade (removes from DB and disk)
+   * Uses transaction to ensure atomicity
+   * @param imageId Image ID to delete
+   */
+  async deleteImage(imageId: string): Promise<void> {
+    // Use transaction to ensure atomicity
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // Find image
+      const image = await queryRunner.manager.findOne(Image, {
+        where: { id: imageId },
+      });
+
+      if (!image) {
+        throw new NotFoundException(`Image with ID ${imageId} not found`);
+      }
+
+      // Store path for deletion
+      const imagePath = image.path;
+
+      // Delete from database (cascade will handle relations)
+      await queryRunner.manager.delete(Image, { id: imageId });
+
+      // Commit transaction
+      await queryRunner.commitTransaction();
+
+      // Delete physical file (after successful transaction)
+      await this.deletePhysicalFile(imagePath);
+    } catch (error) {
+      // Rollback transaction on error
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      // Release query runner
+      await queryRunner.release();
     }
   }
 
