@@ -66,7 +66,7 @@ export class ArticleService {
   async findOne(id: string): Promise<Article> {
     const article = await this.articleRepository.findOne({
       where: { id },
-      relations: ['author', 'comments', 'comments.author'],
+      relations: ['author', 'comments', 'comments.author', 'images'],
     });
 
     if (!article) {

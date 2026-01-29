@@ -23,7 +23,7 @@ export class ImagesService {
     });
   }
 
-  async findOne(id: string): Promise<Image> {
+  async findOne(id: string): Promise<Image | null> {
     return await this.imageRepository.findOne({
       where: { id },
       relations: ['article'],
@@ -66,6 +66,35 @@ export class ImagesService {
       size: file.size,
       articleId,
     } as Partial<Image>);
+  }
+
+  /**
+   * Save multiple files metadata to database
+   * @param files Array of Multer file objects
+   * @param articleId Article ID to associate with images
+   */
+  async saveMultipleImages(
+    files: Express.Multer.File[],
+    articleId: string,
+  ): Promise<Image[]> {
+    if (!files || files.length === 0) {
+      throw new BadRequestException('No files uploaded');
+    }
+
+    // Process all files in parallel for better performance
+    const imagePromises = files.map((file) => {
+      const imagePath = path.join('uploads/images', file.filename).replace(/\\/g, '/');
+      
+      return this.create({
+        filename: file.filename,
+        path: imagePath,
+        mimetype: file.mimetype,
+        size: file.size,
+        articleId,
+      } as Partial<Image>);
+    });
+
+    return await Promise.all(imagePromises);
   }
 
   /**

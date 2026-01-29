@@ -48,6 +48,7 @@ import { Image } from '../entities/image.entity';
           new Error(
             'Only image files are allowed (jpeg, jpg, png, gif, webp)',
           ),
+          false,
         );
       },
       limits: {

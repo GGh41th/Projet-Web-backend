@@ -42,7 +42,7 @@ export class Article {
   @OneToMany(() => Article, (article) => article.parent)
   comments: Article[];
 
-  @OneToMany(() => Image, (image) => image.article)
+  @OneToMany(() => Image, (image) => image.article, { eager: true })
   images: Image[];
 
   @Column({ type: 'int', default: 0 })
