@@ -6,9 +6,11 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Enable CORS
+  // Enable CORS for both HTTP and WebSocket
   const corsOptions = {
-    origin: '*',
+    origin: '*', // In production, specify your frontend URL
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    credentials: true,
     optionsSuccessStatus: 200,
   };
   app.enableCors(corsOptions);
