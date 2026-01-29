@@ -2,7 +2,8 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { MulterModule } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
-import { extname } from 'path';
+import { extname, join } from 'path';
+import * as fs from 'fs';
 import { ImagesService } from './images.service';
 import { ImagesController } from './images.controller';
 import { Image } from '../entities/image.entity';
@@ -13,12 +14,25 @@ import { Image } from '../entities/image.entity';
     MulterModule.register({
       storage: diskStorage({
         destination: (req, file, cb) => {
-          const uploadPath = 'uploads/images';
+          // Create organized directory structure: uploads/images/YYYY/MM/DD
+          const now = new Date();
+          const year = now.getFullYear();
+          const month = String(now.getMonth() + 1).padStart(2, '0');
+          const day = String(now.getDate()).padStart(2, '0');
+          const uploadPath = join('uploads', 'images', year.toString(), month, day);
+
+          // Create directory if it doesn't exist
+          fs.mkdirSync(uploadPath, { recursive: true });
+
           cb(null, uploadPath);
         },
         filename: (req, file, cb) => {
+          // Generate unique filename: timestamp-randomid-originalname
           const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
+          const ext = extname(file.originalname);
+          const basename = file.originalname.replace(ext, '').replace(/[^a-z0-9]/gi, '-').toLowerCase();
+          const filename = `${uniqueSuffix}-${basename}${ext}`;
+          cb(null, filename);
         },
       }),
       fileFilter: (req, file, cb) => {

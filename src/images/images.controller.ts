@@ -1,5 +1,23 @@
-import { Controller, Get, Param, Delete } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Param,
+  Delete,
+  UseInterceptors,
+  UploadedFile,
+  Body,
+  BadRequestException,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiConsumes,
+  ApiBody,
+} from '@nestjs/swagger';
 import { ImagesService } from './images.service';
 import { Image } from '../entities/image.entity';
 
@@ -7,6 +25,56 @@ import { Image } from '../entities/image.entity';
 @Controller('images')
 export class ImagesController {
   constructor(private readonly imagesService: ImagesService) {}
+
+  @Post('upload')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload a single image' })
+  @ApiBody({
+    description: 'Image file and article ID',
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'Image file (JPEG, PNG, GIF, WebP, max 5MB)',
+        },
+        articleId: {
+          type: 'string',
+          description: 'Article ID to associate with the image',
+        },
+      },
+      required: ['file', 'articleId'],
+    },
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Image uploaded successfully',
+    type: Image,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid file or missing articleId',
+  })
+  async uploadImage(
+    @UploadedFile() file: Express.Multer.File,
+    @Body('articleId') articleId: string,
+  ): Promise<Image> {
+    if (!articleId) {
+      throw new BadRequestException('articleId is required');
+    }
+
+    if (!file) {
+      throw new BadRequestException('No file uploaded');
+    }
+
+    // Validate file
+    this.imagesService.validateFile(file);
+
+    // Save metadata to database
+    return await this.imagesService.saveImageMetadata(file, articleId);
+  }
 
   @Get()
   @ApiOperation({ summary: 'Get all images' })
