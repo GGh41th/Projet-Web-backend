@@ -11,6 +11,7 @@ import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { ImagesModule } from './images/images.module';
 import { ArticleModule } from './article/article.module';
+import { SocketModule } from './socket/socket.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { ArticleModule } from './article/article.module';
     AuthModule,
     ImagesModule,
     ArticleModule,
+    SocketModule,
   ],
   controllers: [AppController],
   providers: [

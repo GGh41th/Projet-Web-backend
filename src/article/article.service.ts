@@ -3,6 +3,8 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, Like } from 'typeorm';
@@ -14,6 +16,7 @@ import {
   CreateCommentDto,
   SearchArticleDto,
 } from './dto';
+import { SocketGateway } from '../socket/socket.gateway';
 
 @Injectable()
 export class ArticleService {
@@ -22,6 +25,8 @@ export class ArticleService {
     private articleRepository: Repository<Article>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    @Inject(forwardRef(() => SocketGateway))
+    private socketGateway: SocketGateway,
   ) {}
 
   async create(userId: string, createArticleDto: CreateArticleDto): Promise<Article> {
@@ -52,7 +57,14 @@ export class ArticleService {
       depth,
     });
 
-    return this.articleRepository.save(article);
+    const savedArticle = await this.articleRepository.save(article);
+
+    // Emit real-time event for article creation
+    if (this.socketGateway) {
+      this.socketGateway.emitArticleCreated(savedArticle);
+    }
+
+    return savedArticle;
   }
 
   async findAll(): Promise<Article[]> {
@@ -88,7 +100,14 @@ export class ArticleService {
     }
 
     Object.assign(article, updateArticleDto);
-    return this.articleRepository.save(article);
+    const updatedArticle = await this.articleRepository.save(article);
+
+    // Emit real-time event for article update
+    if (this.socketGateway) {
+      this.socketGateway.emitArticleUpdated(id, updatedArticle);
+    }
+
+    return updatedArticle;
   }
 
   async remove(id: string, userId: string): Promise<void> {
@@ -103,6 +122,11 @@ export class ArticleService {
     }
 
     await this.articleRepository.remove(article);
+
+    // Emit real-time event for article deletion
+    if (this.socketGateway) {
+      this.socketGateway.emitArticleDeleted(id, userId);
+    }
   }
 
   async createComment(userId: string, createCommentDto: CreateCommentDto): Promise<Article> {
@@ -129,7 +153,14 @@ export class ArticleService {
       depth: parent.depth + 1,
     });
 
-    return this.articleRepository.save(comment);
+    const savedComment = await this.articleRepository.save(comment);
+
+    // Emit real-time event for new comment
+    if (this.socketGateway) {
+      this.socketGateway.emitCommentCreated(parentId, savedComment);
+    }
+
+    return savedComment;
   }
 
   async findComments(articleId: string): Promise<Article[]> {
