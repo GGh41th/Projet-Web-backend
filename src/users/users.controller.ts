@@ -31,20 +31,41 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  @Post()
-  @ApiOperation({ summary: 'Create a new user' })
-  @ApiBody({ type: CreateUserDto })
+  @Get()
+  @ApiOperation({ summary: 'Get all users' })
   @ApiResponse({
-    status: 201,
-    description: 'User successfully created',
+    status: 200,
+    description: 'List of all users',
+    type: [UserResponseDto],
+  })
+  async findAll() {
+    return await this.usersService.findAll();
+  }
+
+  @Get('email/:email')
+  @ApiOperation({ summary: 'Get a user by email' })
+  @ApiParam({ name: 'email', description: 'User email address' })
+  @ApiResponse({
+    status: 200,
+    description: 'User found',
     type: UserResponseDto,
   })
-  @ApiResponse({ status: 409, description: 'Email or username already exists' })
-  @ApiResponse({ status: 400, description: 'Invalid input data' })
-  async create(@Body() createUserDto: CreateUserDto) {
-    const user = await this.usersService.create(createUserDto);
-    const { password, ...result } = user;
-    return result;
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async findByEmail(@Param('email') email: string) {
+    return await this.usersService.findByEmail(email);
+  }
+
+  @Get('username/:username')
+  @ApiOperation({ summary: 'Get a user by username' })
+  @ApiParam({ name: 'username', description: 'User username' })
+  @ApiResponse({
+    status: 200,
+    description: 'User found',
+    type: UserResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async findByUsername(@Param('username') username: string) {
+    return await this.usersService.findByUsername(username);
   }
 
   @Get('isvalid/:identifier')
@@ -65,6 +86,19 @@ export class UsersController {
   })
   async isValid(@Param('identifier') identifier: string) {
     return await this.usersService.isValid(identifier);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Get a user by ID' })
+  @ApiParam({ name: 'id', description: 'User UUID' })
+  @ApiResponse({
+    status: 200,
+    description: 'User found',
+    type: UserResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async findOne(@Param('id') id: string) {
+    return await this.usersService.findOne(id);
   }
 
   /**

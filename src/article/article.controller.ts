@@ -80,17 +80,6 @@ export class ArticleController {
     return this.articleService.search(searchDto);
   }
 
-  @Get(':id')
-  @ApiOperation({ summary: 'Get article by ID with comments' })
-  @ApiResponse({
-    status: 200,
-    description: 'Article found',
-    type: ArticleResponseDto,
-  })
-  findOne(@Param('id') id: string) {
-    return this.articleService.findOne(id);
-  }
-
   @Patch(':id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
@@ -140,17 +129,6 @@ export class ArticleController {
     @Body() createCommentDto: CreateCommentDto,
   ) {
     return this.articleService.createComment(user.userId, createCommentDto);
-  }
-
-  @Get(':id/comments')
-  @ApiOperation({ summary: 'Get all comments for an article' })
-  @ApiResponse({
-    status: 200,
-    description: 'List of comments',
-    type: [ArticleResponseDto],
-  })
-  findComments(@Param('id') id: string) {
-    return this.articleService.findComments(id);
   }
 
   @Post(':id/upvote')
