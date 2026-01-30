@@ -100,6 +100,115 @@ Sent to client immediately after successful authentication.
 }
 ```
 
+#### `joinArticle`
+Join an article room to receive real-time updates for that article.
+
+**Request:**
+```javascript
+socket.emit('joinArticle', { articleId: 'article-uuid' });
+```
+
+**Response:**
+```javascript
+{
+  event: 'joinedArticle',
+  data: {
+    articleId: 'article-uuid',
+    message: 'Joined article article-uuid',
+    subscriberCount: 5
+  }
+}
+```
+
+#### `leaveArticle`
+Leave an article room to stop receiving updates.
+
+**Request:**
+```javascript
+socket.emit('leaveArticle', { articleId: 'article-uuid' });
+```
+
+**Response:**
+```javascript
+{
+  event: 'leftArticle',
+  data: {
+    articleId: 'article-uuid',
+    message: 'Left article article-uuid'
+  }
+}
+```
+
+#### `articleCreated`
+Broadcast when a new article is created (sent to all connected clients).
+
+**Automatic emission:**
+```javascript
+{
+  article: { /* article object with author */ },
+  timestamp: '2026-01-30T10:00:00.000Z'
+}
+```
+
+#### `articleUpdated`
+Sent to article room when an article is updated.
+
+**Automatic emission:**
+```javascript
+{
+  article: { /* updated article object */ },
+  timestamp: '2026-01-30T10:00:00.000Z'
+}
+```
+
+#### `articleDeleted`
+Broadcast when an article is deleted.
+
+**Automatic emission:**
+```javascript
+{
+  articleId: 'article-uuid',
+  userId: 'user-uuid',
+  timestamp: '2026-01-30T10:00:00.000Z'
+}
+```
+
+#### `commentCreated`
+Sent to article room when a new comment is added.
+
+**Automatic emission:**
+```javascript
+{
+  comment: { /* comment object with author */ },
+  articleId: 'article-uuid',
+  timestamp: '2026-01-30T10:00:00.000Z'
+}
+```
+
+#### `commentUpdated`
+Sent to article room when a comment is updated.
+
+**Automatic emission:**
+```javascript
+{
+  comment: { /* updated comment object */ },
+  articleId: 'article-uuid',
+  timestamp: '2026-01-30T10:00:00.000Z'
+}
+```
+
+#### `commentDeleted`
+Sent to article room when a comment is deleted.
+
+**Automatic emission:**
+```javascript
+{
+  commentId: 'comment-uuid',
+  articleId: 'article-uuid',
+  timestamp: '2026-01-30T10:00:00.000Z'
+}
+```
+
 #### `ping`
 Test event to verify WebSocket connection.
 
@@ -177,6 +286,89 @@ socket.on('pong', (data) => {
 // Listen for custom events
 socket.on('customEvent', (data) => {
   console.log('Received custom event:', data);
+});
+
+// Join article room to receive updates
+socket.emit('joinArticle', { articleId: 'article-123' });
+
+socket.on('joinedArticle', (data) => {
+  console.log('Joined article room:', data);
+});
+
+// Listen for article updates
+socket.on('articleUpdated', (data) => {
+  console.log('Article updated:', data.article);
+});
+
+// Listen for new comments
+socket.on('commentCreated', (data) => {
+  console.log('New comment on article:', data.comment);
+});
+
+// Leave article room when done
+socket.on('beforeunload', () => {
+  socket.emit('leaveArticle', { articleId: 'article-123' });
+});
+```
+
+### Real-time Article Updates Example
+
+```javascript
+import { io } from 'socket.io-client';
+
+const token = localStorage.getItem('accessToken');
+const socket = io('http://localhost:3000', {
+  query: { token }
+});
+
+// Monitor a specific article
+function watchArticle(articleId) {
+  // Join article room
+  socket.emit('joinArticle', { articleId });
+  
+  // Handle join confirmation
+  socket.on('joinedArticle', (data) => {
+    console.log(`Watching article ${articleId}`);
+    console.log(`${data.subscriberCount} users watching this article`);
+  });
+  
+  // Listen for article updates
+  socket.on('articleUpdated', ({ article, timestamp }) => {
+    console.log('Article updated:', article);
+    updateArticleUI(article);
+  });
+  
+  // Listen for new comments
+  socket.on('commentCreated', ({ comment, articleId: updatedArticleId }) => {
+    if (updatedArticleId === articleId) {
+      console.log('New comment:', comment);
+      addCommentToUI(comment);
+    }
+  });
+  
+  // Listen for deleted comments
+  socket.on('commentDeleted', ({ commentId, articleId: updatedArticleId }) => {
+    if (updatedArticleId === articleId) {
+      console.log('Comment deleted:', commentId);
+      removeCommentFromUI(commentId);
+    }
+  });
+}
+
+// Stop watching when leaving page
+function unwatchArticle(articleId) {
+  socket.emit('leaveArticle', { articleId });
+}
+
+// Listen for globally broadcast events
+socket.on('articleCreated', ({ article }) => {
+  console.log('New article published:', article);
+  addArticleToFeed(article);
+});
+
+socket.on('articleDeleted', ({ articleId }) => {
+  console.log('Article deleted:', articleId);
+  removeArticleFromUI(articleId);
 });
 ```
 

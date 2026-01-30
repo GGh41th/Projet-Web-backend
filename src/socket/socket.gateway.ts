@@ -42,6 +42,9 @@ export class SocketGateway
   // Socket-user mapping: socketId -> userId
   private socketUserMap: Map<string, string> = new Map();
 
+  // Article rooms: articleId -> Set of socket IDs
+  private articleRooms: Map<string, Set<string>> = new Map();
+
   constructor(
     private jwtService: JwtService,
     private configService: ConfigService,
@@ -112,10 +115,23 @@ export class SocketGateway
 
   /**
    * Called when a client disconnects from the WebSocket
-   * Cleans up user-socket mappings
+   * Cleans up user-socket mappings and room subscriptions
    */
   handleDisconnect(client: AuthenticatedSocket) {
     const userId = this.socketUserMap.get(client.id);
+
+    // Clean up article room subscriptions
+    this.articleRooms.forEach((sockets, articleId) => {
+      if (sockets.has(client.id)) {
+        sockets.delete(client.id);
+        if (sockets.size === 0) {
+          this.articleRooms.delete(articleId);
+        }
+        this.logger.log(
+          `Client ${client.id} removed from article room ${articleId}`,
+        );
+      }
+    });
 
     if (userId) {
       // Remove socket from user's socket set
@@ -233,6 +249,92 @@ export class SocketGateway
   }
 
   /**
+   * Room Management Methods
+   */
+
+  /**
+   * Join an article room to receive real-time updates
+   */
+  @SubscribeMessage('joinArticle')
+  handleJoinArticle(
+    @MessageBody() data: { articleId: string },
+    @ConnectedSocket() client: AuthenticatedSocket,
+  ): { event: string; data: any } {
+    const { articleId } = data;
+
+    if (!articleId) {
+      return {
+        event: 'error',
+        data: { message: 'articleId is required' },
+      };
+    }
+
+    // Join socket.io room
+    client.join(`article:${articleId}`);
+
+    // Track in articleRooms
+    if (!this.articleRooms.has(articleId)) {
+      this.articleRooms.set(articleId, new Set());
+    }
+    this.articleRooms.get(articleId)!.add(client.id);
+
+    this.logger.log(
+      `User ${client.user?.email} joined article ${articleId} (Socket: ${client.id})`,
+    );
+
+    return {
+      event: 'joinedArticle',
+      data: {
+        articleId,
+        message: `Joined article ${articleId}`,
+        subscriberCount: this.articleRooms.get(articleId)?.size || 0,
+      },
+    };
+  }
+
+  /**
+   * Leave an article room
+   */
+  @SubscribeMessage('leaveArticle')
+  handleLeaveArticle(
+    @MessageBody() data: { articleId: string },
+    @ConnectedSocket() client: AuthenticatedSocket,
+  ): { event: string; data: any } {
+    const { articleId } = data;
+
+    if (!articleId) {
+      return {
+        event: 'error',
+        data: { message: 'articleId is required' },
+      };
+    }
+
+    // Leave socket.io room
+    client.leave(`article:${articleId}`);
+
+    // Remove from articleRooms
+    const room = this.articleRooms.get(articleId);
+    if (room) {
+      room.delete(client.id);
+      if (room.size === 0) {
+        this.articleRooms.delete(articleId);
+      }
+    }
+
+    this.logger.log(
+      `User ${client.user?.email} left article ${articleId} (Socket: ${client.id})`,
+    );
+
+    return {
+      event: 'leftArticle',
+      data: {
+        articleId,
+        message: `Left article ${articleId}`,
+      },
+    };
+  }
+
+  /**
    * Handle incoming ping messages (for connection testing)
    */
   @SubscribeMessage('ping')
@@ -321,5 +423,115 @@ export class SocketGateway
    */
   getOnlineUsers(): string[] {
     return Array.from(this.userSocketMap.keys());
+  }
+
+  /**
+   * Article Event Emitters
+   */
+
+  /**
+   * Emit article created event
+   */
+  emitArticleCreated(article: any) {
+    this.logger.log(`Emitting articleCreated event for article ${article.id}`);
+    this.server.emit('articleCreated', {
+      article,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  /**
+   * Emit article updated event to article room
+   */
+  emitArticleUpdated(articleId: string, article: any) {
+    this.logger.log(`Emitting articleUpdated event for article ${articleId}`);
+    this.server.to(`article:${articleId}`).emit('articleUpdated', {
+      article,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  /**
+   * Emit article deleted event
+   */
+  emitArticleDeleted(articleId: string, userId: string) {
+    this.logger.log(`Emitting articleDeleted event for article ${articleId}`);
+    this.server.emit('articleDeleted', {
+      articleId,
+      userId,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  /**
+   * Comment Event Emitters
+   */
+
+  /**
+   * Emit new comment event to article room
+   */
+  emitCommentCreated(articleId: string, comment: any) {
+    this.logger.log(
+      `Emitting commentCreated event for article ${articleId}`,
+    );
+    this.server.to(`article:${articleId}`).emit('commentCreated', {
+      comment,
+      articleId,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  /**
+   * Emit comment updated event to article room
+   */
+  emitCommentUpdated(articleId: string, comment: any) {
+    this.logger.log(
+      `Emitting commentUpdated event for article ${articleId}`,
+    );
+    this.server.to(`article:${articleId}`).emit('commentUpdated', {
+      comment,
+      articleId,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  /**
+   * Emit comment deleted event to article room
+   */
+  emitCommentDeleted(articleId: string, commentId: string) {
+    this.logger.log(
+      `Emitting commentDeleted event for article ${articleId}`,
+    );
+    this.server.to(`article:${articleId}`).emit('commentDeleted', {
+      commentId,
+      articleId,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  /**
+   * Room Management Utilities
+   */
+
+  /**
+   * Emit event to specific room
+   */
+  emitToRoom(roomId: string, event: string, data: any) {
+    this.logger.log(`Emitting event "${event}" to room ${roomId}`);
+    this.server.to(roomId).emit(event, data);
+  }
+
+  /**
+   * Get subscriber count for an article room
+   */
+  getArticleSubscriberCount(articleId: string): number {
+    return this.articleRooms.get(articleId)?.size || 0;
+  }
+
+  /**
+   * Get all active article rooms
+   */
+  getActiveArticleRooms(): string[] {
+    return Array.from(this.articleRooms.keys());
   }
 }
