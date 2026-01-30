@@ -10,7 +10,7 @@ import { SocketGateway } from './socket.gateway';
       useFactory: async (configService: ConfigService) => ({
         secret: configService.get<string>('JWT_SECRET') || 'jwt_secret_key',
         signOptions: {
-          expiresIn: configService.get<string>('JWT_EXPIRATION') || '1d',
+          expiresIn: configService.get<number>('JWT_EXPIRATION') || 86400,
         },
       }),
       inject: [ConfigService],

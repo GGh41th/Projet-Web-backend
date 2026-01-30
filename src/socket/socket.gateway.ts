@@ -510,6 +510,14 @@ export class SocketGateway
   }
 
   /**
+   * Notification Event Emitters
+   */
+  emitNotification(userId: string, notification: any) {
+    this.logger.log(`Emitting notification to user ${userId}`);
+    this.sendToUser(userId, 'notification', notification);
+  }
+
+  /**
    * Room Management Utilities
    */
 

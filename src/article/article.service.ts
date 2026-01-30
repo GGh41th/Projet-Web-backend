@@ -17,6 +17,9 @@ import {
   SearchArticleDto,
 } from './dto';
 import { SocketGateway } from '../socket/socket.gateway';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationType } from '../notifications/enums/notification-type.enum';
+import { NotificationTargetType } from '../notifications/enums/notification-target.enum';
 
 @Injectable()
 export class ArticleService {
@@ -27,6 +30,7 @@ export class ArticleService {
     private userRepository: Repository<User>,
     @Inject(forwardRef(() => SocketGateway))
     private socketGateway: SocketGateway,
+    private notificationsService: NotificationsService,
   ) {}
 
   async create(userId: string, createArticleDto: CreateArticleDto): Promise<Article> {
@@ -40,8 +44,9 @@ export class ArticleService {
     }
 
     let depth = 0;
+    let parent: Article | null = null;
     if (parentId) {
-      const parent = await this.articleRepository.findOne({
+      parent = await this.articleRepository.findOne({
         where: { id: parentId },
       });
       if (!parent) {
@@ -62,6 +67,10 @@ export class ArticleService {
     // Emit real-time event for article creation
     if (this.socketGateway) {
       this.socketGateway.emitArticleCreated(savedArticle);
+    }
+
+    if (parent) {
+      await this.notifyOnCommentCreation(savedArticle, parent, author);
     }
 
     return savedArticle;
@@ -172,6 +181,8 @@ export class ArticleService {
       this.socketGateway.emitCommentCreated(parentId, savedComment);
     }
 
+    await this.notifyOnCommentCreation(savedComment, parent, author);
+
     return savedComment;
   }
 
@@ -280,6 +291,30 @@ export class ArticleService {
       relations: ['upvoters', 'downvoters'],
     });
 
+    const actor = await this.userRepository.findOne({
+      where: { id: userId },
+      select: ['id', 'username'],
+    });
+
+    if (actor) {
+      const isComment = !!article.parentId;
+      const rootArticleId = isComment
+        ? await this.findRootArticleId(article.id)
+        : article.id;
+
+      await this.notificationsService.createNotification({
+        recipientId: article.authorId,
+        actorId: actor.id,
+        actorUsername: actor.username,
+        type: NotificationType.UPVOTE,
+        targetType: isComment
+          ? NotificationTargetType.COMMENT
+          : NotificationTargetType.ARTICLE,
+        articleId: rootArticleId,
+        commentId: isComment ? article.id : null,
+      });
+    }
+
     return {
       upvoted: true,
       upvoteCount: updatedArticle?.upvoters.length || 0,
@@ -341,6 +376,30 @@ export class ArticleService {
       where: { id: articleId },
       relations: ['upvoters', 'downvoters'],
     });
+
+    const actor = await this.userRepository.findOne({
+      where: { id: userId },
+      select: ['id', 'username'],
+    });
+
+    if (actor) {
+      const isComment = !!article.parentId;
+      const rootArticleId = isComment
+        ? await this.findRootArticleId(article.id)
+        : article.id;
+
+      await this.notificationsService.createNotification({
+        recipientId: article.authorId,
+        actorId: actor.id,
+        actorUsername: actor.username,
+        type: NotificationType.DOWNVOTE,
+        targetType: isComment
+          ? NotificationTargetType.COMMENT
+          : NotificationTargetType.ARTICLE,
+        articleId: rootArticleId,
+        commentId: isComment ? article.id : null,
+      });
+    }
 
     return {
       downvoted: true,
@@ -428,5 +487,51 @@ export class ArticleService {
     }
 
     return sortedComments;
+  }
+
+  private async notifyOnCommentCreation(
+    comment: Article,
+    parent: Article,
+    actor: User,
+  ): Promise<void> {
+    const recipientId = parent.authorId;
+    if (!recipientId || recipientId === actor.id) {
+      return;
+    }
+
+    const isReply = parent.parentId !== null;
+    const rootArticleId = isReply
+      ? await this.findRootArticleId(parent.id)
+      : parent.id;
+
+    await this.notificationsService.createNotification({
+      recipientId,
+      actorId: actor.id,
+      actorUsername: actor.username,
+      type: isReply ? NotificationType.REPLY : NotificationType.COMMENT,
+      targetType: isReply
+        ? NotificationTargetType.COMMENT
+        : NotificationTargetType.ARTICLE,
+      articleId: rootArticleId,
+      commentId: comment.id,
+    });
+  }
+
+  private async findRootArticleId(startId: string): Promise<string> {
+    let currentId = startId;
+    let current = await this.articleRepository.findOne({
+      where: { id: currentId },
+      select: ['id', 'parentId'],
+    });
+
+    while (current && current.parentId) {
+      currentId = current.parentId;
+      current = await this.articleRepository.findOne({
+        where: { id: currentId },
+        select: ['id', 'parentId'],
+      });
+    }
+
+    return current?.id || currentId;
   }
 }
