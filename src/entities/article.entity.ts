@@ -6,7 +6,9 @@ import {
   UpdateDateColumn,
   ManyToOne,
   OneToMany,
+  ManyToMany,
   JoinColumn,
+  JoinTable,
 } from 'typeorm';
 import { User } from './user.entity';
 import { Image } from './image.entity';
@@ -44,6 +46,22 @@ export class Article {
 
   @OneToMany(() => Image, (image) => image.article, { eager: true })
   images: Image[];
+
+  @ManyToMany(() => User)
+  @JoinTable({
+    name: 'article_upvoters_user',
+    joinColumn: { name: 'articleId', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'userId', referencedColumnName: 'id' },
+  })
+  upvoters: User[];
+
+  @ManyToMany(() => User)
+  @JoinTable({
+    name: 'article_downvoters_user',
+    joinColumn: { name: 'articleId', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'userId', referencedColumnName: 'id' },
+  })
+  downvoters: User[];
 
   @Column({ type: 'int', default: 0 })
   depth: number;

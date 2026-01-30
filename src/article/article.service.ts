@@ -78,12 +78,24 @@ export class ArticleService {
   async findOne(id: string): Promise<Article> {
     const article = await this.articleRepository.findOne({
       where: { id },
-      relations: ['author', 'comments', 'comments.author', 'images'],
+      relations: ['author', 'comments', 'comments.author', 'comments.upvoters', 'comments.downvoters', 'images'],
     });
 
     if (!article) {
       throw new NotFoundException(`Article with ID ${id} not found`);
     }
+
+    article.comments = article.comments
+      .map(comment => ({
+        ...comment,
+        voteScore: comment.upvoters.length - comment.downvoters.length,
+      }))
+      .sort((a, b) => {
+        if (b.voteScore !== a.voteScore) {
+          return b.voteScore - a.voteScore;
+        }
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
 
     return article;
   }
@@ -211,5 +223,210 @@ export class ArticleService {
       page,
       limit,
     };
+  }
+
+  async upvote(articleId: string, userId: string): Promise<{
+    upvoted: boolean;
+    upvoteCount: number;
+    downvoteCount: number;
+  }> {
+    const article = await this.articleRepository.findOne({
+      where: { id: articleId },
+      relations: ['upvoters', 'downvoters'],
+    });
+
+    if (!article) {
+      throw new NotFoundException(`Article with ID ${articleId} not found`);
+    }
+
+    const hasUpvoted = article.upvoters.some(u => u.id === userId);
+    const hasDownvoted = article.downvoters.some(u => u.id === userId);
+
+    if (hasUpvoted) {
+      await this.articleRepository
+        .createQueryBuilder()
+        .relation(Article, 'upvoters')
+        .of(articleId)
+        .remove(userId);
+
+      const updatedArticle = await this.articleRepository.findOne({
+        where: { id: articleId },
+        relations: ['upvoters', 'downvoters'],
+      });
+
+      return {
+        upvoted: false,
+        upvoteCount: updatedArticle?.upvoters.length || 0,
+        downvoteCount: updatedArticle?.downvoters.length || 0,
+      };
+    }
+
+    if (hasDownvoted) {
+      await this.articleRepository
+        .createQueryBuilder()
+        .relation(Article, 'downvoters')
+        .of(articleId)
+        .remove(userId);
+    }
+
+    await this.articleRepository
+      .createQueryBuilder()
+      .relation(Article, 'upvoters')
+      .of(articleId)
+      .add(userId);
+
+    const updatedArticle = await this.articleRepository.findOne({
+      where: { id: articleId },
+      relations: ['upvoters', 'downvoters'],
+    });
+
+    return {
+      upvoted: true,
+      upvoteCount: updatedArticle?.upvoters.length || 0,
+      downvoteCount: updatedArticle?.downvoters.length || 0,
+    };
+  }
+
+  async downvote(articleId: string, userId: string): Promise<{
+    downvoted: boolean;
+    upvoteCount: number;
+    downvoteCount: number;
+  }> {
+    const article = await this.articleRepository.findOne({
+      where: { id: articleId },
+      relations: ['upvoters', 'downvoters'],
+    });
+
+    if (!article) {
+      throw new NotFoundException(`Article with ID ${articleId} not found`);
+    }
+
+    const hasUpvoted = article.upvoters.some(u => u.id === userId);
+    const hasDownvoted = article.downvoters.some(u => u.id === userId);
+
+    if (hasDownvoted) {
+      await this.articleRepository
+        .createQueryBuilder()
+        .relation(Article, 'downvoters')
+        .of(articleId)
+        .remove(userId);
+
+      const updatedArticle = await this.articleRepository.findOne({
+        where: { id: articleId },
+        relations: ['upvoters', 'downvoters'],
+      });
+
+      return {
+        downvoted: false,
+        upvoteCount: updatedArticle?.upvoters.length || 0,
+        downvoteCount: updatedArticle?.downvoters.length || 0,
+      };
+    }
+
+    if (hasUpvoted) {
+      await this.articleRepository
+        .createQueryBuilder()
+        .relation(Article, 'upvoters')
+        .of(articleId)
+        .remove(userId);
+    }
+
+    await this.articleRepository
+      .createQueryBuilder()
+      .relation(Article, 'downvoters')
+      .of(articleId)
+      .add(userId);
+
+    const updatedArticle = await this.articleRepository.findOne({
+      where: { id: articleId },
+      relations: ['upvoters', 'downvoters'],
+    });
+
+    return {
+      downvoted: true,
+      upvoteCount: updatedArticle?.upvoters.length || 0,
+      downvoteCount: updatedArticle?.downvoters.length || 0,
+    };
+  }
+
+  async getVoteCounts(articleId: string): Promise<{
+    upvoteCount: number;
+    downvoteCount: number;
+  }> {
+    const article = await this.articleRepository.findOne({
+      where: { id: articleId },
+      relations: ['upvoters', 'downvoters'],
+    });
+
+    if (!article) {
+      throw new NotFoundException(`Article with ID ${articleId} not found`);
+    }
+
+    return {
+      upvoteCount: article.upvoters.length,
+      downvoteCount: article.downvoters.length,
+    };
+  }
+
+  async findOneWithNestedComments(
+    id: string,
+    maxDepth: number = 2,
+  ): Promise<Article> {
+    const article = await this.articleRepository.findOne({
+      where: { id },
+      relations: ['author', 'images'],
+    });
+
+    if (!article) {
+      throw new NotFoundException(`Article with ID ${id} not found`);
+    }
+
+    article.comments = await this.loadCommentsRecursively(id, 0, maxDepth);
+
+    return article;
+  }
+
+  async loadCommentReplies(
+    commentId: string,
+    maxDepth: number = 2,
+  ): Promise<Article[]> {
+    return this.loadCommentsRecursively(commentId, 0, maxDepth);
+  }
+
+  private async loadCommentsRecursively(
+    parentId: string,
+    currentDepth: number,
+    maxDepth: number,
+  ): Promise<Article[]> {
+    if (currentDepth >= maxDepth) {
+      return [];
+    }
+
+    const comments = await this.articleRepository.find({
+      where: { parentId },
+      relations: ['author', 'upvoters', 'downvoters'],
+    });
+
+    const sortedComments = comments
+      .map(comment => ({
+        ...comment,
+        voteScore: comment.upvoters.length - comment.downvoters.length,
+      }))
+      .sort((a, b) => {
+        if (b.voteScore !== a.voteScore) {
+          return b.voteScore - a.voteScore;
+        }
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+
+    for (const comment of sortedComments) {
+      comment.comments = await this.loadCommentsRecursively(
+        comment.id,
+        currentDepth + 1,
+        maxDepth,
+      );
+    }
+
+    return sortedComments;
   }
 }

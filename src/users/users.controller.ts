@@ -47,43 +47,6 @@ export class UsersController {
     return result;
   }
 
-  @Get()
-  @ApiOperation({ summary: 'Get all users' })
-  @ApiResponse({
-    status: 200,
-    description: 'List of all users',
-    type: [UserResponseDto],
-  })
-  async findAll() {
-    return await this.usersService.findAll();
-  }
-
-  @Get('email/:email')
-  @ApiOperation({ summary: 'Get a user by email' })
-  @ApiParam({ name: 'email', description: 'User email address' })
-  @ApiResponse({
-    status: 200,
-    description: 'User found',
-    type: UserResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'User not found' })
-  async findByEmail(@Param('email') email: string) {
-    return await this.usersService.findByEmail(email);
-  }
-
-  @Get('username/:username')
-  @ApiOperation({ summary: 'Get a user by username' })
-  @ApiParam({ name: 'username', description: 'User username' })
-  @ApiResponse({
-    status: 200,
-    description: 'User found',
-    type: UserResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'User not found' })
-  async findByUsername(@Param('username') username: string) {
-    return await this.usersService.findByUsername(username);
-  }
-
   @Get('isvalid/:identifier')
   @ApiOperation({
     summary: 'Check if username or email is available',
@@ -102,44 +65,6 @@ export class UsersController {
   })
   async isValid(@Param('identifier') identifier: string) {
     return await this.usersService.isValid(identifier);
-  }
-
-  @Get(':id')
-  @ApiOperation({ summary: 'Get a user by ID' })
-  @ApiParam({ name: 'id', description: 'User UUID' })
-  @ApiResponse({
-    status: 200,
-    description: 'User found',
-    type: UserResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'User not found' })
-  async findOne(@Param('id') id: string) {
-    return await this.usersService.findOne(id);
-  }
-
-  @Patch(':id')
-  @ApiOperation({ summary: 'Update a user by ID' })
-  @ApiParam({ name: 'id', description: 'User UUID' })
-  @ApiBody({ type: UpdateUserDto })
-  @ApiResponse({
-    status: 200,
-    description: 'User successfully updated',
-    type: UserResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'User not found' })
-  @ApiResponse({ status: 409, description: 'Username already exists' })
-  async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-    return await this.usersService.update(id, updateUserDto);
-  }
-
-  @Delete(':id')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Delete a user by ID' })
-  @ApiParam({ name: 'id', description: 'User UUID' })
-  @ApiResponse({ status: 204, description: 'User successfully deleted' })
-  @ApiResponse({ status: 404, description: 'User not found' })
-  async remove(@Param('id') id: string) {
-    await this.usersService.remove(id);
   }
 
   /**
