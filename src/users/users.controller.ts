@@ -8,6 +8,7 @@ import {
   Delete,
   Query,
   ParseBoolPipe,
+  ParseUUIDPipe,
   HttpCode,
   HttpStatus,
   UseGuards,
@@ -88,19 +89,6 @@ export class UsersController {
     return await this.usersService.isValid(identifier);
   }
 
-  @Get(':id')
-  @ApiOperation({ summary: 'Get a user by ID' })
-  @ApiParam({ name: 'id', description: 'User UUID' })
-  @ApiResponse({
-    status: 200,
-    description: 'User found',
-    type: UserResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'User not found' })
-  async findOne(@Param('id') id: string) {
-    return await this.usersService.findOne(id);
-  }
-
   /**
    * ============================================
    * AUTHENTICATED USER PROFILE MANAGEMENT
@@ -172,6 +160,19 @@ export class UsersController {
       changePasswordDto.newPassword,
     );
     return { message: 'Password changed successfully' };
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Get a user by ID' })
+  @ApiParam({ name: 'id', description: 'User UUID' })
+  @ApiResponse({
+    status: 200,
+    description: 'User found',
+    type: UserResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async findOne(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
+    return await this.usersService.findOne(id);
   }
 }
 
