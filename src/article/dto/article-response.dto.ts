@@ -36,6 +36,12 @@ export class ArticleResponseDto {
   @ApiProperty({ type: [ArticleResponseDto] })
   comments: ArticleResponseDto[];
 
+  @ApiProperty({
+    required: false,
+    description: 'Direct child comment count. Present in list/search responses to avoid loading full comments.',
+  })
+  commentsCount?: number;
+
   @ApiProperty()
   createdAt: Date;
 

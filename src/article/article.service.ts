@@ -77,11 +77,14 @@ export class ArticleService {
   }
 
   async findAll(): Promise<Article[]> {
-    return this.articleRepository.find({
-      where: { parentId: IsNull() },
-      relations: ['author'],
-      order: { createdAt: 'DESC' },
-    });
+    return this.articleRepository
+      .createQueryBuilder('article')
+      .leftJoinAndSelect('article.author', 'author')
+      .where('article.parentId IS NULL')
+      // Lightweight comment count for feed/search views.
+      .loadRelationCountAndMap('article.commentsCount', 'article.comments')
+      .orderBy('article.createdAt', 'DESC')
+      .getMany();
   }
 
   async findOne(id: string): Promise<Article> {
@@ -209,6 +212,9 @@ export class ArticleService {
       .createQueryBuilder('article')
       .leftJoinAndSelect('article.author', 'author')
       .where('article.parentId IS NULL');
+
+    // Lightweight comment count for list/search views.
+    queryBuilder.loadRelationCountAndMap('article.commentsCount', 'article.comments');
 
     if (q) {
       queryBuilder.andWhere(
