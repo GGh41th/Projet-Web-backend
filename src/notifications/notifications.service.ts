@@ -57,6 +57,72 @@ export class NotificationsService {
       return null;
     }
 
+    const isVote =
+      input.type === NotificationType.UPVOTE ||
+      input.type === NotificationType.DOWNVOTE;
+
+    if (isVote) {
+      const existing = await this.notificationRepository
+        .createQueryBuilder('notification')
+        .where('notification.recipientId = :recipientId', {
+          recipientId: input.recipientId,
+        })
+        .andWhere('notification.actorId = :actorId', { actorId: input.actorId })
+        .andWhere('notification.targetType = :targetType', {
+          targetType: input.targetType,
+        })
+        .andWhere('notification.type IN (:...types)', {
+          types: [NotificationType.UPVOTE, NotificationType.DOWNVOTE],
+        })
+        .andWhere('notification.articleId IS NOT DISTINCT FROM :articleId', {
+          articleId: input.articleId ?? null,
+        })
+        .andWhere('notification.commentId IS NOT DISTINCT FROM :commentId', {
+          commentId: input.commentId ?? null,
+        })
+        .getOne();
+
+      if (existing) {
+        await this.notificationRepository
+          .createQueryBuilder()
+          .update()
+          .set({
+            type: input.type,
+            isRead: false,
+            createdAt: () => 'CURRENT_TIMESTAMP',
+          })
+          .where('id = :id', { id: existing.id })
+          .execute();
+
+        const updated = await this.notificationRepository.findOne({
+          where: { id: existing.id },
+          relations: ['actor'],
+        });
+
+        if (updated) {
+          const actor =
+            input.actorUsername ||
+            updated.actor?.username ||
+            (await this.userRepository.findOne({
+              where: { id: input.actorId },
+              select: ['id', 'username'],
+            }))?.username ||
+            input.actorId;
+
+          const dto = this.toDto(updated, {
+            id: input.actorId,
+            username: actor,
+          });
+
+          if (this.socketGateway) {
+            this.socketGateway.emitNotification(input.recipientId, dto);
+          }
+
+          return dto;
+        }
+      }
+    }
+
     const notification = this.notificationRepository.create({
       recipientId: input.recipientId,
       actorId: input.actorId,
