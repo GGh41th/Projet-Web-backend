@@ -463,7 +463,7 @@ export class ArticleService {
 
     const comments = await this.articleRepository.find({
       where: { parentId },
-      relations: ['author', 'upvoters', 'downvoters'],
+      relations: ['author', 'upvoters', 'downvoters', 'images'],
     });
 
     const sortedComments = comments

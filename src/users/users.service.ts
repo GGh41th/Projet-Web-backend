@@ -6,7 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, ILike } from 'typeorm';
 import { User } from '../entities/user.entity';
 import { CreateUserDto, UpdateUserDto } from './dto';
 import * as bcrypt from 'bcrypt';
@@ -98,6 +98,25 @@ export class UsersService {
     }
 
     return user;
+  }
+
+  /**
+   * Search users by username or email (case-insensitive)
+   */
+  async search(term: string): Promise<User[]> {
+    if (!term || term.trim().length === 0) {
+      return [];
+    }
+
+    const query = term.trim();
+    return this.userRepository.find({
+      where: [
+        { username: ILike(`%${query}%`) },
+        { email: ILike(`%${query}%`) },
+      ],
+      select: ['id', 'email', 'username', 'name', 'lastName', 'bio', 'role', 'createdAt', 'updatedAt'],
+      order: { createdAt: 'DESC' },
+    });
   }
 
   /**
