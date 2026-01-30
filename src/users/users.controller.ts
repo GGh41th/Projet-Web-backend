@@ -31,22 +31,6 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  @Post()
-  @ApiOperation({ summary: 'Create a new user' })
-  @ApiBody({ type: CreateUserDto })
-  @ApiResponse({
-    status: 201,
-    description: 'User successfully created',
-    type: UserResponseDto,
-  })
-  @ApiResponse({ status: 409, description: 'Email or username already exists' })
-  @ApiResponse({ status: 400, description: 'Invalid input data' })
-  async create(@Body() createUserDto: CreateUserDto) {
-    const user = await this.usersService.create(createUserDto);
-    const { password, ...result } = user;
-    return result;
-  }
-
   @Get('isvalid/:identifier')
   @ApiOperation({
     summary: 'Check if username or email is available',
