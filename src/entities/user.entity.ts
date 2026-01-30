@@ -7,10 +7,12 @@ import {
   BeforeInsert,
   BeforeUpdate,
   ManyToMany,
+  OneToMany,
 } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { Role } from '../auth/enums/role.enum';
 import { Article } from './article.entity';
+import { Notification } from './notification.entity';
 
 @Entity('users')
 export class User {
@@ -65,4 +67,7 @@ export class User {
   async validatePassword(password: string): Promise<boolean> {
     return bcrypt.compare(password, this.password);
   }
+
+  @OneToMany(() => Notification, (n) => n.recipient)
+  notifications: Notification[];
 }

@@ -12,6 +12,7 @@ import { AuthModule } from './auth/auth.module';
 import { ImagesModule } from './images/images.module';
 import { ArticleModule } from './article/article.module';
 import { SocketModule } from './socket/socket.module';
+import { NotificationModule } from './notification/notification.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { SocketModule } from './socket/socket.module';
     ImagesModule,
     ArticleModule,
     SocketModule,
+    NotificationModule,
   ],
   controllers: [AppController],
   providers: [
