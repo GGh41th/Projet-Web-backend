@@ -80,6 +80,7 @@ export class ArticleService {
     return this.articleRepository
       .createQueryBuilder('article')
       .leftJoinAndSelect('article.author', 'author')
+      .leftJoinAndSelect('article.images', 'images')
       .where('article.parentId IS NULL')
       // Lightweight comment count for feed/search views.
       .loadRelationCountAndMap('article.commentsCount', 'article.comments')
@@ -211,6 +212,7 @@ export class ArticleService {
     const queryBuilder = this.articleRepository
       .createQueryBuilder('article')
       .leftJoinAndSelect('article.author', 'author')
+      .leftJoinAndSelect('article.images', 'images')
       .where('article.parentId IS NULL');
 
     // Lightweight comment count for list/search views.
